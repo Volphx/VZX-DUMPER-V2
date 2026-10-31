@@ -4,7 +4,7 @@ Aplicativo Windows com interface WPF para descompilar IL2CPP, buscar offsets e a
 
 ## Instalação
 
-Baixe `VZX-Dumper-v2.1.0-win-x64.zip` na página Releases, extraia e execute `VZX-Dumper.exe`.
+Baixe `VZX-Dumper-v2.1.1-win-x64.zip` na página Releases, extraia e execute `VZX-Dumper.exe`.
 
 Requer Windows x64 e **.NET Desktop Runtime 10 x64**. A versão compacta não inclui o runtime. O executável Windows é de 64 bits; a análise aceita arquivos de jogos de 32 e 64 bits.
 
@@ -20,7 +20,7 @@ A análise automática pode ser ativada ao concluir o dump. Campos ausentes ou a
 
 O botão **Testar ESP** usa uma cópia dos resultados da análise atual em uma sessão de leitura do BlueStacks. O jogo deve estar em primeiro plano. Há seleção de PID quando existem várias instâncias. Nova análise ou fechamento do Dumper encerra a sessão.
 
-O leitor usa consulta/leitura, sem injeção ou escrita no processo. A DLL nativa é carregada no próprio Dumper. Os perfis auxiliares Unity/IL2CPP e BstkVMM precisam ser compatíveis. O teste verifica os caminhos necessários ao desenho e não certifica todos os offsets da tabela. O modo ao vivo ARMv7 não foi validado nesta entrega.
+O leitor usa consulta/leitura, sem injeção ou escrita no processo. A DLL nativa é carregada no próprio Dumper. Os perfis auxiliares Unity/IL2CPP e BstkVMM precisam ser compatíveis. O teste verifica os caminhos necessários ao desenho e não certifica todos os offsets da tabela. O backend ao vivo ARMv7 foi validado em treinamento conforme a seção de correção abaixo.
 
 ## Compilação
 
@@ -44,3 +44,9 @@ O motor C++ é compilado automaticamente e incorporado ao aplicativo. Não há d
 O núcleo Il2CppDumper é de Perfare e contribuidores, sob licença MIT, preservada em `Il2CppDumper_Core/LICENSE`. Consulte os avisos nos componentes. Nenhuma licença adicional foi atribuída nesta atualização.
 
 Dumps, bibliotecas de jogos, metadados, caches e saídas locais não são distribuídos no repositório nem na release.
+
+## Correção do teste ARMv7
+
+Quando os campos essenciais estão indisponíveis no dump ARMv7, o início do teste recupera FieldInfo da hierarquia do jogador, atributos e avatar. A identificação exige global-metadata.dat v31 ao lado da biblioteca selecionada e concordância de pelo menos 32 pares ponteiro/token (80% ou mais, sem candidato concorrente próximo). Valores conflitantes com o dump impedem a sessão. Nenhum offset de captura antiga é aplicado.
+
+Os campos recuperados são usados apenas na sessão de leitura. A tabela continua representando a análise estática. Validação V7A em treinamento: quatro alvos com 200/200 HP, coordenadas finitas e segmentos de ossos; três quadros consecutivos e encerramento da sessão aprovados. A validação cobriu os dados do backend, sem captura visual da sobreposição nesta execução.

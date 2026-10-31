@@ -4,6 +4,7 @@
 #include <mutex>
 #include <cmath>
 #include <map>
+#include "field_recovery.hpp"
 namespace LiveTest {
 struct Profile {
     std::map<std::string,U64> fields;bool arm32=false;
@@ -25,7 +26,7 @@ struct Profile {
         auto* bytes=reinterpret_cast<unsigned char*>(header.data());unsigned short machine=0;std::memcpy(&machine,bytes+18,2);
         arm32=bytes[4]==1&&machine==40;if(!arm32&&!(bytes[4]==2&&machine==183))throw std::runtime_error("ELF ARMv7/ARM64 esperado");
         if(arm32){pointer=4;native=8;staticFields=0x5C;arrayData=0x10;arrayLength=0xC;hierarchy=0x20;index=0x24;parents=0x1C;view=0x68;projection=0xA8;}
-        for(auto key:{"Game.CurrentGame","Game.Match","Match.LocalPlayer","Match.Entities","Player.CachedTransform","Player.FollowCamera","Camera.ManagedCamera","Player.AvatarManager","Avatar.Instance","Avatar.IsVisible","Player.DataPool","Attributes.Array","Attributes.Count","Attributes.Value","Skeleton.Node01","Skeleton.Node06"})required(key);
+        for(auto key:{"Game.CurrentGame","Game.Match","Match.LocalPlayer","Match.Entities","Player.FollowCamera","Camera.ManagedCamera","Player.AvatarManager","Avatar.Instance","Skeleton.Node01","Skeleton.Node06"})required(key);
         if(has("Managed.NativePointer")&&required("Managed.NativePointer")!=native)throw std::runtime_error("Layout nativo Unity incompativel");
         Offsets::Build::GameClassRva=rva;Offsets::Build::ElfArchitecture=header[4];Offsets::Build::ElfEntryMarker=header[6];
         Offsets::Build::DiscoveryHint=0;Offsets::Managed::PointerSize=pointer;Offsets::Managed::ClassStaticFields=staticFields;
@@ -71,8 +72,19 @@ inline std::string name(Memory& m,const Profile& p,U64 entity){
 struct Session {Profile profile;std::unique_ptr<Memory> memory;DWORD pid=0;};
 inline std::unique_ptr<Session> session;inline std::mutex mutex;
 inline std::string start(const wchar_t* library,U64 rva,const char* rows,DWORD pid){
-    std::lock_guard guard(mutex);session.reset();auto next=std::make_unique<Session>();next->profile.load(library,rva,rows);next->pid=pid;next->memory=std::make_unique<Memory>(pid);session=std::move(next);
-    return "{\"valid\":true,\"pid\":"+std::to_string(pid)+",\"status\":\"Conectado. ESP somente leitura; layouts nativos Unity verificados por consistencia.\"}";
+    std::lock_guard guard(mutex);session.reset();auto next=std::make_unique<Session>();next->profile.load(library,rva,rows);next->pid=pid;next->memory=std::make_unique<Memory>(pid);
+    auto& p=next->profile;auto& mem=*next->memory;unsigned recovered=0;
+    if(p.arm32&&(!p.has("Player.CachedTransform")||!p.has("Player.DataPool")||!p.has("Attributes.Array")||!p.has("Attributes.Count")||!p.has("Attributes.Value")||!p.has("Avatar.IsVisible"))) {
+        auto metadata=fs::path(library).parent_path()/L"global-metadata.dat";
+        if(!fs::is_regular_file(metadata))throw std::runtime_error("Recuperacao V7A requer global-metadata.dat ao lado da biblioteca selecionada");
+        mem.begin_frame();auto klass=ptr(mem,ptr(mem,mem.base+Offsets::Build::GameClassRva));
+        auto game=ptr(mem,ptr(mem,klass+p.staticFields)+p.required("Game.CurrentGame"));
+        auto local=ptr(mem,ptr(mem,game+p.required("Game.Match"))+p.required("Match.LocalPlayer"));
+        recovered=FieldRecovery::recover(mem,p.fields,local,metadata);
+    }
+    for(auto key:{"Player.CachedTransform","Player.DataPool","Attributes.Array","Attributes.Count","Attributes.Value","Avatar.IsVisible"})p.required(key);
+    session=std::move(next);
+    return "{\"valid\":true,\"pid\":"+std::to_string(pid)+",\"status\":\"Conectado. ESP somente leitura; campos ausentes recuperados de FieldInfo quando necessarios. Layouts Unity sujeitos a validacao.\"}";
 }
 inline std::string frame(){
     std::lock_guard guard(mutex);if(!session)throw std::runtime_error("ESP nao iniciado");auto& m=*session->memory;const auto& p=session->profile;
