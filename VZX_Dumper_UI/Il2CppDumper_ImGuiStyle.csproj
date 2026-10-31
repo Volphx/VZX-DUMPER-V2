@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\Il2CppDumper_Core\Il2CppDumper\Il2CppDumper.csproj" />
@@ -10,6 +10,20 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <Version>2.1.0</Version>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <FileVersion>2.1.0.0</FileVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <OffsetRvaHeaders Include="Native\Core\*.hpp" />
+    <OffsetRvaHeaders Include="Native\Live\*.hpp" />
+    <EmbeddedResource Include="Native\bin\OffsetRvaEngine.dll" LogicalName="VZX.OffsetRvaEngine.dll" />
+  </ItemGroup>
+  <Target Name="BuildOffsetRvaEngine" BeforeTargets="PrepareForBuild"
+          Inputs="Native\bridge.cpp;Native\build.cmd;@(OffsetRvaHeaders)"
+          Outputs="$(MSBuildProjectDirectory)\Native\bin\OffsetRvaEngine.dll">
+    <Exec Command="&quot;$(MSBuildProjectDirectory)\Native\build.cmd&quot;" />
+  </Target>
 </Project>

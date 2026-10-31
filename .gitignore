@@ -363,3 +363,11 @@ MigrationBackup/
 FodyWeavers.xsd
 *.bak
 
+
+# Local inputs and generated analysis
+[Dd]umps/
+[Dd]ummyDll/
+.env
+.env.*
+*.pem
+*.key

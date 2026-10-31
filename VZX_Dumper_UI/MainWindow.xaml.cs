@@ -72,7 +72,7 @@ namespace Il2CppDumper_ImGuiStyle
                 }
 
                 // Tenta achar metadata no mesmo diretorio
-                var dir = Path.GetDirectoryName(ofd.FileName);
+                var dir = Path.GetDirectoryName(ofd.FileName) ?? AppContext.BaseDirectory;
                 var metaCandidates = new[]
                 {
                     Path.Combine(dir, "global-metadata.dat"),
@@ -174,6 +174,7 @@ namespace Il2CppDumper_ImGuiStyle
 
         private void BtnStartDump_Click(object sender, RoutedEventArgs e)
         {
+            var analyzeOffsetsAfterDump = OffsetsView.AnalyzeAfterDump;
             var soPath = TxtSoPath.Text.Trim();
             var metaPath = TxtMetaPath.Text.Trim();
             var outDir = string.IsNullOrWhiteSpace(TxtOutputDir.Text) ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Dumps") : TxtOutputDir.Text.Trim();
@@ -181,12 +182,12 @@ namespace Il2CppDumper_ImGuiStyle
 
             if (!File.Exists(soPath))
             {
-                MessageBox.Show("Por favor, selecione um arquivo binário ELF (.so) válido.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowErrorModal("Biblioteca não selecionada", "Selecione um arquivo binário ELF (.so) válido para continuar.");
                 return;
             }
             if (!File.Exists(metaPath))
             {
-                MessageBox.Show("Por favor, selecione o arquivo global-metadata.dat.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ShowErrorModal("Metadados não selecionados", "Selecione o arquivo global-metadata.dat para continuar.");
                 return;
             }
 
@@ -384,6 +385,14 @@ namespace Il2CppDumper_ImGuiStyle
                         Log("[OK] dump.cs de metadados gerado com sucesso!");
                     }
 
+                    if (analyzeOffsetsAfterDump)
+                    {
+                        Log("[OFFSETS] Analisando os campos e o RVA inicial dos arquivos gerados...");
+                        var analysisTask = Dispatcher.Invoke(() => OffsetsView.AnalyzeAsync(Path.Combine(outDir, "dump.cs"), soPath));
+                        var analyzed = analysisTask.GetAwaiter().GetResult();
+                        Log(analyzed ? "[OFFSETS] Resultados disponíveis na aba Offsets + RVA." : "[OFFSETS] Análise não concluída. Consulte o estado na aba Offsets + RVA.");
+                        Dispatcher.Invoke(() => MainTabs.SelectedItem = OffsetsTab);
+                    }
                     Log($"[✓] CONCLUÍDO COM SUCESSO! Dumps salvos em: {outDir}");
                     Dispatcher.Invoke(() =>
                     {
@@ -403,7 +412,7 @@ namespace Il2CppDumper_ImGuiStyle
                     Dispatcher.Invoke(() =>
                     {
                         BtnStartDump.IsEnabled = true;
-                        BtnStartDump.Content = "Descompilar Arquivos";
+                        BtnStartDump.Content = "Gerar dump";
                         BtnAdbExtract.IsEnabled = true;
                         PrgBar.IsIndeterminate = false;
                     });
